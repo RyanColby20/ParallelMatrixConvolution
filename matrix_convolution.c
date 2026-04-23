@@ -5,19 +5,18 @@
 #include <time.h>
 
 // Dynamic pointers to support any size matrix
-double **A;
-double **C;
+double **A, **C;
 
 // 3x3 Sharpening Kernel
 double K[3][3] = {
     {0, -1, 0},
     {-1, 5, -1},
-    {0, -1, 0}
-};
+    {0, -1, 0}};
 
 pthread_barrier_t barrier;
 
-typedef struct {
+typedef struct
+{
     int id;
     int start;
     int end;
@@ -25,43 +24,53 @@ typedef struct {
 } thread_data;
 
 // Utility to dynamically allocate a 2D matrix
-double** allocate_matrix(int size) {
+double **allocate_matrix(int size)
+{
     double **matrix = (double **)malloc(size * sizeof(double *));
-    for (int i = 0; i < size; i++) {
+    for (int i = 0; i < size; i++)
+    {
         matrix[i] = (double *)malloc(size * sizeof(double));
     }
     return matrix;
 }
 
 // Initialization function
-void initMatrices(int size) {
+void initMatrices(int size)
+{
     srand(time(NULL));
 
     // Populate A with random values and zero out C
-    for (int i = 0; i < size; i++) {
-        for (int j = 0; j < size; j++) {
+    for (int i = 0; i < size; i++)
+    {
+        for (int j = 0; j < size; j++)
+        {
             A[i][j] = (double)(rand() % 10);
             C[i][j] = 0;
         }
     }
 }
 
-void* worker(void* arg){
-    thread_data *data = (thread_data*)arg;
+void *worker(void *arg)
+{
+    thread_data *data = (thread_data *)arg;
     int start_row = data->start;
     int end_row = data->end;
     int n = data->matrix_size;
 
     // Loop through assigned rows
-    for (int i = start_row; i <= end_row; i++) {
+    for (int i = start_row; i <= end_row; i++)
+    {
 
         // Loop through columns (skipping edge columns 0 and n-1)
-        for (int j = 1; j < n - 1; j++) {
+        for (int j = 1; j < n - 1; j++)
+        {
             double sum = 0.0;
 
             // Apply the 3x3 sharpening kernel
-            for (int m = -1; m <= 1; m++) {
-                for (int n_k = -1; n_k <= 1; n_k++) {
+            for (int m = -1; m <= 1; m++)
+            {
+                for (int n_k = -1; n_k <= 1; n_k++)
+                {
                     // Map the -1, 0, 1 offsets to the 0, 1, 2 kernel indices
                     sum += A[i + m][j + n_k] * K[m + 1][n_k + 1];
                 }
@@ -70,26 +79,48 @@ void* worker(void* arg){
         }
     }
 
-    // Barrier synchronize convolution stages [cite: 67]
+    // Barrier synchronize convolution stages
     pthread_barrier_wait(&barrier);
 
-    // Print the expected output format [cite: 93]
+    // Print the expected output format
     printf("Thread %d finished convolution\n", data->id);
 
     return NULL;
 }
 
-int main(int argc, char *argv[]) {
+int main(int argc, char *argv[])
+{
     // 1. CLI Parsing & Mode Selection
     int n = 500;           // Default size
     int num_threads = 5;   // Default threads
     char mode[10] = "cpu"; // Default mode
 
-    if (argc >= 2) n = atoi(argv[1]);
-    if (argc >= 3) num_threads = atoi(argv[2]);
-    if (argc >= 4) strncpy(mode, argv[3], sizeof(mode) - 1);
+    if (argc >= 2)
+        n = atoi(argv[1]);
+    if (argc >= 3)
+        num_threads = atoi(argv[2]);
+    if (argc >= 4)
+        strncpy(mode, argv[3], sizeof(mode) - 1);
 
-    if (strcmp(mode, "gpu") == 0) {
+    // Check argumemts
+    if (n < 3)
+    {
+        printf("Matrix size must be at least 3.\n");
+        return 1;
+    }
+
+    if (num_threads < 1)
+    {
+        num_threads = 1;
+    }
+
+    if (num_threads > n - 2)
+    {
+        num_threads = n - 2;
+    }
+
+    if (strcmp(mode, "gpu") == 0)
+    {
         printf("GPU mode selected (Extra Credit - To Be Implemented)\n");
         return 0; // GPU logic will go here later
     }
@@ -103,8 +134,10 @@ int main(int argc, char *argv[]) {
 
     // Test output
     printf("Initial Matrix A:\n");
-    for (int i = 0; i < n; i++) {
-        for (int j = 0; j < n; j++) {
+    for (int i = 0; i < n; i++)
+    {
+        for (int j = 0; j < n; j++)
+        {
             printf("%.0f ", A[i][j]);
         }
         printf("\n");
@@ -125,10 +158,12 @@ int main(int argc, char *argv[]) {
     int oddRows = validRows % num_threads;
     int currentRow = 1;
 
-    for (int count = 0; count < num_threads; ++count) {
+    for (int count = 0; count < num_threads; ++count)
+    {
         int rowAmount = normalRows;
 
-        if (oddRows > 0) {
+        if (oddRows > 0)
+        {
             rowAmount++;
             oddRows--;
         }
@@ -141,16 +176,19 @@ int main(int argc, char *argv[]) {
         currentRow = t_data[count].end + 1;
 
         // Create thread
-        if (pthread_create(&threads[count], NULL, worker, &t_data[count]) != 0) {
+        if (pthread_create(&threads[count], NULL, worker, &t_data[count]) != 0)
+        {
             perror("Failed to create thread");
             return 1;
         }
     }
 
     // 6. Join Threads
-    for (int i = 0; i < num_threads; i++) {
-        if (pthread_join(threads[i], NULL) != 0) {
-            perror("Failed to shut down thread");
+    for (int i = 0; i < num_threads; i++)
+    {
+        if (pthread_join(threads[i], NULL) != 0)
+        {
+            perror("Failed to join thread");
             return 1;
         }
     }
@@ -165,7 +203,8 @@ int main(int argc, char *argv[]) {
 
     // 8. Cleanup
     pthread_barrier_destroy(&barrier);
-    for (int i = 0; i < n; i++) {
+    for (int i = 0; i < n; i++)
+    {
         free(A[i]);
         free(C[i]);
     }
