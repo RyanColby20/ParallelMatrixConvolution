@@ -3,6 +3,15 @@
 #include <pthread.h>
 #include <string.h>
 #include <time.h>
+#include <cuda_runtime.h>
+
+
+/*
+    ========================
+    ====   MEMORY       ====
+    ====   ALLOCATION   ====
+    ========================
+*/
 
 // Dynamic pointers to support any size matrix
 double **A;
@@ -39,6 +48,25 @@ double **allocate_matrix(int size)
     return matrix;
 }
 
+/*
+    ========================
+    ==== INITIALIZATION ====
+    ========================
+*/
+
+// check for device with cuda compatability
+// return: 0 == no device; 1 == device
+int has_gpu() {
+    int count = 0;
+    cudaError_t err = cudaGetDeviceCount(&count);
+    if (err != cudaSuccess || count == 0) {
+        return 0;
+    }
+    return 1;
+}
+
+
+
 // Initialization function
 void initMatrices(int size)
 {
@@ -51,39 +79,6 @@ void initMatrices(int size)
             C[i][j] = 0; // Clear the output matrix
         }
     }
-}
-
-void *worker(void *arg)
-{
-    thread_data *data = (thread_data *)arg;
-    int start_row = data->start;
-    int end_row = data->end;
-    int n = data->matrix_size;
-
-    // Loop through the assigned rows for this thread
-    for (int i = start_row; i <= end_row; i++)
-    {
-        // Loop through columns, skipping the left and right edges
-        for (int j = 1; j < n - 1; j++)
-        {
-            double sum = 0.0;
-
-            // Apply the 3x3 kernel
-            for (int m = -1; m <= 1; m++)
-            {
-                for (int n_k = -1; n_k <= 1; n_k++)
-                {
-                    sum += A[i + m][j + n_k] * K[m + 1][n_k + 1];
-                }
-            }
-            C[i][j] = sum;
-        }
-    }
-
-    // Make sure all threads finish their math before moving on
-    pthread_barrier_wait(&barrier);
-    printf("Thread %d finished convolution\n", data->id);
-    return NULL;
 }
 
 // Fct to parse command line arguments
@@ -124,19 +119,14 @@ int parse_arguments(int argc, char *argv[], int *n, int *num_threads, char *mode
     return 0; // Success
 }
 
-// Print matrix for testing
-void print_matrix(double **mat, int n, const char *title)
-{
-    printf("%s\n", title);
-    for (int i = 0; i < n; i++)
-    {
-        for (int j = 0; j < n; j++)
-        {
-            printf("%.0f ", mat[i][j]);
-        }
-        printf("\n");
-    }
-}
+
+/*
+    ========================
+    ====   CONVOLUTION  ====
+    ====   FUNCTIONS    ====
+    ========================
+*/
+
 
 void run_convolution(int n, int num_threads)
 {
@@ -207,10 +197,68 @@ void run_convolution(int n, int num_threads)
     free(t_data);
 }
 
+void *worker(void *arg)
+{
+    thread_data *data = (thread_data *)arg;
+    int start_row = data->start;
+    int end_row = data->end;
+    int n = data->matrix_size;
+
+    // Loop through the assigned rows for this thread
+    for (int i = start_row; i <= end_row; i++)
+    {
+        // Loop through columns, skipping the left and right edges
+        for (int j = 1; j < n - 1; j++)
+        {
+            double sum = 0.0;
+
+            // Apply the 3x3 kernel
+            for (int m = -1; m <= 1; m++)
+            {
+                for (int n_k = -1; n_k <= 1; n_k++)
+                {
+                    sum += A[i + m][j + n_k] * K[m + 1][n_k + 1];
+                }
+            }
+            C[i][j] = sum;
+        }
+    }
+
+    // Make sure all threads finish their math before moving on
+    pthread_barrier_wait(&barrier);
+    printf("Thread %d finished convolution\n", data->id);
+    return NULL;
+}
+
 void run_gpu_convolution(int n)
 {
     printf("GPU convolution executed (Placeholder).\n");
 }
+
+
+
+/*
+    ========================
+    ====     UTILITY    ====
+    ====     CLEANUP    ====
+    ========================
+*/
+
+// Print matrix for testing
+void print_matrix(double **mat, int n, const char *title)
+{
+    printf("%s\n", title);
+    for (int i = 0; i < n; i++)
+    {
+        for (int j = 0; j < n; j++)
+        {
+            printf("%.0f ", mat[i][j]);
+        }
+        printf("\n");
+    }
+}
+
+
 
 // Free the 2D arrays to prevent memory leaks
 void cleanup_matrices(int n)
@@ -224,11 +272,19 @@ void cleanup_matrices(int n)
     free(C);
 }
 
+/*
+    ========================
+    ====      MAIN      ====
+    ========================
+*/
+
+
 int main(int argc, char *argv[])
 {
+    // TODO: parse arguments
     int n = 500;
     int num_threads = 5;
-    char mode[10] = "cpu";
+    char mode[10] = "cpu"; // iand: why this?
 
     // Parse CLI inputs and exit if bad
     if (parse_arguments(argc, argv, &n, &num_threads, mode) != 0)
@@ -236,11 +292,25 @@ int main(int argc, char *argv[])
         return 0;
     }
 
+    // check for gpu
+    if (strcmp(mode, "cpu") != 0){
+              
+        if (has_gpu()) {
+            printf("GPU available. %s\n");
+        }
+        else{
+            printf("No GPU detected, falling back to CPU only.\n");
+            mode = "cpu";
+        }
+    }   
+
     printf("Configuration: %dx%d matrix, %d threads.\n", n, n, num_threads);
 
     A = allocate_matrix(n);
     C = allocate_matrix(n);
     initMatrices(n);
+
+    
 
     // TEST OUTPUT (only for small matrices)
     if (n <= 10)
