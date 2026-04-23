@@ -1,8 +1,3 @@
-Here is the updated code. All comments referencing teammates have been removed, and the if (n <= 10) safeguard has been stripped out so that it will print the matrix regardless of its size.
-
-Just a quick heads-up: printing a 500x500 matrix to your terminal will dump 250,000 numbers onto your screen, which might cause your console to lag a bit! But it will execute exactly as you requested.
-
-C
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
