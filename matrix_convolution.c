@@ -46,13 +46,36 @@ void initMatrices(int size) {
     }
 }
 
-// Exactly as provided in the skeleton code
 void* worker(void* arg){
     thread_data *data = (thread_data*)arg;
+    int start_row = data->start;
+    int end_row = data->end;
+    int n = data->matrix_size;
 
-    // TO DO: perform convolution on assigned rows
+    // Loop through assigned rows
+    for (int i = start_row; i <= end_row; i++) {
 
+        // Loop through columns (skipping edge columns 0 and n-1)
+        for (int j = 1; j < n - 1; j++) {
+            double sum = 0.0;
+
+            // Apply the 3x3 sharpening kernel
+            for (int m = -1; m <= 1; m++) {
+                for (int n_k = -1; n_k <= 1; n_k++) {
+                    // Map the -1, 0, 1 offsets to the 0, 1, 2 kernel indices
+                    sum += A[i + m][j + n_k] * K[m + 1][n_k + 1];
+                }
+            }
+            C[i][j] = sum;
+        }
+    }
+
+    // Barrier synchronize convolution stages [cite: 67]
     pthread_barrier_wait(&barrier);
+
+    // Print the expected output format [cite: 93]
+    printf("Thread %d finished convolution\n", data->id);
+
     return NULL;
 }
 
