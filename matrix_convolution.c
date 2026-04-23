@@ -12,6 +12,10 @@
     ====   ALLOCATION   ====
     ========================
 */
+// placeholders for functions so ian's eyes don't bleed.
+void *worker(void *arg);
+void run_gpu_convolution(const float *h_A, const float *h_K, float *h_C, int N, int M, int ksize);
+
 
 // Dynamic pointers to support any size matrix
 double **A;
@@ -135,10 +139,6 @@ void run_convolution(int n, int num_threads)
     thread_data *t_data = malloc(num_threads * sizeof(thread_data));
     pthread_barrier_init(&barrier, NULL, num_threads);
 
-    // Start the stopwatch
-    struct timespec start_time, end_time;
-    clock_gettime(CLOCK_MONOTONIC, &start_time);
-
     // Init the variables needed to split the rows up between threads
     int validRows = n - 2; // Skip top and bottom edge
     int normalRows = validRows / num_threads;
@@ -183,13 +183,9 @@ void run_convolution(int n, int num_threads)
         }
     }
 
-    // Stop stopwatch and calculate time
-    clock_gettime(CLOCK_MONOTONIC, &end_time);
-    double time_taken = (end_time.tv_sec - start_time.tv_sec) +
-                        (end_time.tv_nsec - start_time.tv_nsec) / 1e9;
 
     printf("CPU Convolution complete.\n");
-    printf("CPU Execution time: %f seconds\n", time_taken);
+    
 
     // Clean up thread stuff
     pthread_barrier_destroy(&barrier);
@@ -230,9 +226,58 @@ void *worker(void *arg)
     return NULL;
 }
 
-void run_gpu_convolution(int n)
+__global__
+void convo_kernel(const float *A, const float *K, float *C, int N, int M, int ksize
+) {
+    int j = blockIdx.x * blockDim.x + threadIdx.x; // column
+    int i = blockIdx.y * blockDim.y + threadIdx.y; // row
+
+    int r = ksize / 2;
+
+    if (i < r || i >= N - r || j < r || j >= M - r) {
+        return; // skip edges
+    }
+
+    float sum = 0.0f;
+    for (int ki = -r; ki <= r; ki++) {
+        for (int kj = -r; kj <= r; kj++) {
+            float a = A[(i + ki) * M + (j + kj)];
+            float w = K[(ki + r) * ksize + (kj + r)];
+            sum += a * w;
+        }
+    }
+    C[i * M + j] = sum;
+}
+
+
+void run_gpu_convolution(const float *h_A, const float *h_K, float *h_C, int N, int M, int ksize)
 {
-    printf("GPU convolution executed (Placeholder).\n");
+    size_t bytes_A = N * M * sizeof(float);
+    size_t bytes_C = N * M * sizeof(float);
+    size_t bytes_K = ksize * ksize * sizeof(float);
+
+    float *d_A, *d_C, *d_K;
+    cudaMalloc(&d_A, bytes_A);
+    cudaMalloc(&d_C, bytes_C);
+    cudaMalloc(&d_K, bytes_K);
+
+    cudaMemcpy(d_A, h_A, bytes_A, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_K, h_K, bytes_K, cudaMemcpyHostToDevice);
+
+    dim3 block(16, 16);
+    dim3 grid( (M + block.x - 1) / block.x, (N + block.y - 1) / block.y);
+
+    convo_kernel<<<grid, block>>>(d_A, d_K, d_C, N, M, ksize);
+    cudaDeviceSynchronize();
+
+    cudaMemcpy(h_C, d_C, bytes_C, cudaMemcpyDeviceToHost);
+
+    cudaFree(d_A);
+    cudaFree(d_C);
+    cudaFree(d_K);
+
+    printf("GPU Convolution complete.\n");
+
 }
 
 
@@ -243,6 +288,13 @@ void run_gpu_convolution(int n)
     ====     CLEANUP    ====
     ========================
 */
+
+// returns current time
+double get_current_time() {
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return ts.tv_sec + ts.tv_nsec * 1e-9;
+}
 
 // Print matrix for testing
 void print_matrix(double **mat, int n, const char *title)
@@ -293,14 +345,12 @@ int main(int argc, char *argv[])
     }
 
     // check for gpu
-    if (strcmp(mode, "cpu") != 0){
-              
+    if (strcmp(mode, "cpu") != 0){         
         if (has_gpu()) {
-            printf("GPU available. %s\n");
-        }
-        else{
+            printf("GPU available. Mode: %s\n", mode);
+        } else{
             printf("No GPU detected, falling back to CPU only.\n");
-            mode = "cpu";
+            strcpy(mode, "cpu");
         }
     }   
 
@@ -318,16 +368,52 @@ int main(int argc, char *argv[])
         print_matrix(A, n, "Initial Matrix A:");
     }
 
+    // doubles to measure time
+    double start_time;
+
     if (strcmp(mode, "cpu") == 0 || strcmp(mode, "both") == 0)
     {
+        start_time = get_current_time();
         printf("\n--- Running CPU Version ---\n");
         run_convolution(n, num_threads);
+        double cpu_time = get_current_time() - start_time;
+        printf("CPU Version Elapsed Time: %.4f", cpu_time);
     }
 
     if (strcmp(mode, "gpu") == 0 || strcmp(mode, "both") == 0)
     {
+        // setting up vars for CUDA
+        float *h_A_flat = malloc(n * n * sizeof(float));
+        float *h_C_flat = malloc(n * n * sizeof(float));
+        float h_K_flat[9]; // 3x3
+
+        // pack A into h_A_flat
+        for (int i = 0; i < n; i++) {
+            for (int j = 0; j < n; j++) {
+                h_A_flat[i * n + j] = (float)A[i][j];
+            }
+        }
+
+        // pack K into h_K_flat
+        int idx = 0;
+        for (int i = 0; i < 3; i++) {
+            for (int j = 0; j < 3; j++) {
+                h_K_flat[idx++] = (float)K[i][j];
+            }
+        }
+
+        start_time = get_current_time();
         printf("\n--- Running GPU Version ---\n");
-        run_gpu_convolution(n);
+        run_gpu_convolution(h_A_flat, h_K_flat, h_C_flat, n, n, 3);
+        double gpu_time = get_current_time() - start_time;
+        printf("GPU Version Elapsed Time: %.4f", gpu_time);
+
+        // unpack C
+        for (int i = 0; i < n; i++) {
+            for (int j = 0; j < n; j++) {
+                C[i][j] = h_C_flat[i * n + j];
+            }
+        }
     }
 
     cleanup_matrices(n);
