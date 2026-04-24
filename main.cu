@@ -7,14 +7,12 @@
 #include "cpu_convolution.h"
 #include "gpu_convolution.h"
 
-
 /*
     ========================
     ====   MEMORY       ====
     ====   ALLOCATION   ====
     ========================
 */
-
 
 // Dynamic pointers to support any size matrix
 double **A;
@@ -25,8 +23,6 @@ double K[3][3] = {
     {0, -1, 0},
     {-1, 5, -1},
     {0, -1, 0}};
-
-
 
 // Utility to dynamically allocate a 2D matrix
 double **allocate_matrix(int size)
@@ -49,16 +45,16 @@ double **allocate_matrix(int size)
 
 // check for device with cuda compatability
 // return: 0 == no device; 1 == device
-int has_gpu() {
+int has_gpu()
+{
     int count = 0;
     cudaError_t err = cudaGetDeviceCount(&count);
-    if (err != cudaSuccess || count == 0) {
+    if (err != cudaSuccess || count == 0)
+    {
         return 0;
     }
     return 1;
 }
-
-
 
 // Initialization function
 void initMatrices(int size)
@@ -69,7 +65,7 @@ void initMatrices(int size)
         for (int j = 0; j < size; j++)
         {
             A[i][j] = (double)(rand() % 10); // Random digits 0-9
-            C[i][j] = 0; // Clear the output matrix
+            C[i][j] = 0;                     // Clear the output matrix
         }
     }
 }
@@ -112,21 +108,12 @@ int parse_arguments(int argc, char *argv[], int *n, int *num_threads, char *mode
     return 0; // Success
 }
 
-
-
 /*
     ========================
     ====     UTILITY    ====
     ====     CLEANUP    ====
     ========================
 */
-
-// returns current time
-double get_current_time() {
-    struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    return ts.tv_sec + ts.tv_nsec * 1e-9;
-}
 
 // Print matrix for testing
 void print_matrix(double **mat, int n, const char *title)
@@ -142,16 +129,19 @@ void print_matrix(double **mat, int n, const char *title)
     }
 }
 
-void save_matrix(const char *filename, double **M, int size)
+void save_general_matrix(const char *filename, double **M, int size)
 {
     FILE *fp = fopen(filename, "w");
-    if(!fp) {
+    if (!fp)
+    {
         perror("fopen");
         return;
     }
 
-    for (int i = 0; i < size; i++){
-        for (int j = 0; j < size; j++){
+    for (int i = 0; i < size; i++)
+    {
+        for (int j = 0; j < size; j++)
+        {
             fprintf(fp, "%.4f ", M[i][j]);
         }
         fprintf(fp, "\n");
@@ -159,9 +149,6 @@ void save_matrix(const char *filename, double **M, int size)
 
     fclose(fp);
 }
-
-
-
 
 // Free the 2D arrays to prevent memory leaks
 void cleanup_matrices(int n)
@@ -174,13 +161,36 @@ void cleanup_matrices(int n)
     free(A); // Free the row pointers
     free(C);
 }
+// unpack C
+
+void save_gpu_matrix(const char *filename, float *M, int size)
+{
+    {
+        FILE *fp = fopen(filename, "w");
+        if (!fp)
+        {
+            perror("fopen");
+            return;
+        }
+
+        for (int i = 0; i < size; i++)
+        {
+            for (int j = 0; j < size; j++)
+            {
+                fprintf(fp, "%.4f ", M[i * size + j]);
+            }
+            fprintf(fp, "\n");
+        }
+
+        fclose(fp);
+    }
+}
 
 /*
     ========================
     ====      MAIN      ====
     ========================
 */
-
 
 int main(int argc, char *argv[])
 {
@@ -191,26 +201,28 @@ int main(int argc, char *argv[])
     // Parse CLI inputs and exit if bad
     if (parse_arguments(argc, argv, &n, &num_threads, mode) != 0)
     {
-        return 0;
+        return 1;
     }
 
     // check for gpu
-    if (strcmp(mode, "cpu") != 0){         
-        if (has_gpu()) {
+    if (strcmp(mode, "cpu") != 0)
+    {
+        if (has_gpu())
+        {
             printf("GPU available. Mode: %s\n", mode);
-        } else{
+        }
+        else
+        {
             printf("No GPU detected, falling back to CPU only.\n");
             strcpy(mode, "cpu");
         }
-    }   
+    }
 
     printf("Configuration: %dx%d matrix, %d threads.\n", n, n, num_threads);
 
     A = allocate_matrix(n);
     C = allocate_matrix(n);
     initMatrices(n);
-
-    
 
     // TEST OUTPUT (only for small matrices)
     if (n <= 10)
@@ -228,6 +240,14 @@ int main(int argc, char *argv[])
         run_convolution(n, num_threads);
         double cpu_time = get_current_time() - start_time;
         printf("CPU Version Elapsed Time: %.4f  \n", cpu_time);
+        if (strcmp(mode, "both") == 0)
+        {
+            save_general_matrix("outputCpu.txt", C, n);
+        }
+        else
+        {
+            save_general_matrix("outputCpu.txt", C, n);
+        }
     }
 
     if (strcmp(mode, "gpu") == 0 || strcmp(mode, "both") == 0)
@@ -238,16 +258,20 @@ int main(int argc, char *argv[])
         float h_K_flat[9];
 
         // pack A into h_A_flat
-        for (int i = 0; i < n; i++) {
-            for (int j = 0; j < n; j++) {
+        for (int i = 0; i < n; i++)
+        {
+            for (int j = 0; j < n; j++)
+            {
                 h_A_flat[i * n + j] = (float)A[i][j];
             }
         }
 
         // pack K into h_K_flat
         int idx = 0;
-        for (int i = 0; i < 3; i++) {
-            for (int j = 0; j < 3; j++) {
+        for (int i = 0; i < 3; i++)
+        {
+            for (int j = 0; j < 3; j++)
+            {
                 h_K_flat[idx++] = (float)K[i][j];
             }
         }
@@ -258,15 +282,19 @@ int main(int argc, char *argv[])
         double gpu_time = get_current_time() - start_time;
         printf("GPU Version Elapsed Time: %.4f \n", gpu_time);
 
-        // unpack C
-        for (int i = 0; i < n; i++) {
-            for (int j = 0; j < n; j++) {
-                C[i][j] = h_C_flat[i * n + j];
-            }
+        if (strcmp(mode, "both") == 0)
+        {
+            save_gpu_matrix("outputGpu.txt", h_C_flat, n);
         }
+        else
+        {
+            save_gpu_matrix("outputGpu.txt", h_C_flat, n);
+        }
+
+        free(h_A_flat);
+        free(h_C_flat);
     }
 
-    save_matrix("output.txt", C, n);
     cleanup_matrices(n);
 
     return 0;
