@@ -142,6 +142,25 @@ void print_matrix(double **mat, int n, const char *title)
     }
 }
 
+void save_matrix(const char *filename, double **M, int size)
+{
+    FILE *fp = fopen(filename, "w");
+    if(!fp) {
+        perror("fopen");
+        return;
+    }
+
+    for (int i = 0; i < size; i++){
+        for (int j = 0; j < size; j++){
+            fprintf(fp, "%.4f ", M[i][j]);
+        }
+        fprintf(fp, "\n");
+    }
+
+    fclose(fp);
+}
+
+
 
 
 // Free the 2D arrays to prevent memory leaks
@@ -208,15 +227,15 @@ int main(int argc, char *argv[])
         printf("\n--- Running CPU Version ---\n");
         run_convolution(n, num_threads);
         double cpu_time = get_current_time() - start_time;
-        printf("CPU Version Elapsed Time: %.4f", cpu_time);
+        printf("CPU Version Elapsed Time: %.4f  \n", cpu_time);
     }
 
     if (strcmp(mode, "gpu") == 0 || strcmp(mode, "both") == 0)
     {
         // setting up vars for CUDA
-        float *h_A_flat = malloc(n * n * sizeof(float));
-        float *h_C_flat = malloc(n * n * sizeof(float));
-        float h_K_flat[9]; // 3x3
+        float *h_A_flat = (float *)malloc(n * n * sizeof(float));
+        float *h_C_flat = (float *)malloc(n * n * sizeof(float));
+        float h_K_flat[9];
 
         // pack A into h_A_flat
         for (int i = 0; i < n; i++) {
@@ -237,7 +256,7 @@ int main(int argc, char *argv[])
         printf("\n--- Running GPU Version ---\n");
         run_gpu_convolution(h_A_flat, h_K_flat, h_C_flat, n, n, 3);
         double gpu_time = get_current_time() - start_time;
-        printf("GPU Version Elapsed Time: %.4f", gpu_time);
+        printf("GPU Version Elapsed Time: %.4f \n", gpu_time);
 
         // unpack C
         for (int i = 0; i < n; i++) {
@@ -247,6 +266,7 @@ int main(int argc, char *argv[])
         }
     }
 
+    save_matrix("output.txt", C, n);
     cleanup_matrices(n);
 
     return 0;

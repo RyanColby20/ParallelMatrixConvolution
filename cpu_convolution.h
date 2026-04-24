@@ -1,6 +1,9 @@
-#ifndef CPU_CONVOLUTION_H
-#define CPU_CONVOLUTION_H
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-void run_convolution(int n, int num_threads);
+void run_convolution(int width, int height);
 
+#ifdef __cplusplus
+}
 #endif
