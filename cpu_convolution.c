@@ -1,6 +1,7 @@
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 #include "cpu_convolution.h"
 
 // these defined in main
@@ -12,25 +13,39 @@ extern double K[3][3];
 pthread_barrier_t barrier;
 
 // Struct to hold data for each thread
-typedef struct {
+typedef struct
+{
     int id;
     int start;
     int end;
     int matrix_size;
 } thread_data;
 
-void *worker(void *arg) {
+// returns current time
+double get_current_time()
+{
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return ts.tv_sec + ts.tv_nsec * 1e-9;
+}
+
+void *worker(void *arg)
+{
     thread_data *data = (thread_data *)arg;
     int start_row = data->start;
-    int end_row   = data->end;
-    int n         = data->matrix_size;
+    int end_row = data->end;
+    int n = data->matrix_size;
 
-    for (int i = start_row; i <= end_row; i++) {
-        for (int j = 1; j < n - 1; j++) {
+    for (int i = start_row; i <= end_row; i++)
+    {
+        for (int j = 1; j < n - 1; j++)
+        {
             double sum = 0.0;
-            for (int m = -1; m <= 1; m++) {
-                for (int k = -1; k <= 1; k++) {
-                    sum += A[i+m][j+k] * K[m+1][k+1];
+            for (int m = -1; m <= 1; m++)
+            {
+                for (int k = -1; k <= 1; k++)
+                {
+                    sum += A[i + m][j + k] * K[m + 1][k + 1];
                 }
             }
             C[i][j] = sum;
@@ -41,7 +56,8 @@ void *worker(void *arg) {
     return NULL;
 }
 
-void run_convolution(int n, int num_threads) {
+void run_convolution(int n, int num_threads)
+{
     pthread_t *threads = malloc(num_threads * sizeof(pthread_t));
     thread_data *tdata = malloc(num_threads * sizeof(thread_data));
 
@@ -53,7 +69,10 @@ void run_convolution(int n, int num_threads) {
 
     int current = 1;
 
-    for (int t = 0; t < num_threads; t++) {
+    double startTime = get_current_time();
+
+    for (int t = 0; t < num_threads; t++)
+    {
         int rows = base + (extra-- > 0 ? 1 : 0);
 
         tdata[t].id = t;
@@ -69,7 +88,11 @@ void run_convolution(int n, int num_threads) {
     for (int t = 0; t < num_threads; t++)
         pthread_join(threads[t], NULL);
 
+    double endTime = get_current_time() - startTime;
+
     pthread_barrier_destroy(&barrier);
     free(threads);
     free(tdata);
+
+    printf("Cpu Threaded Time %.4f\n", endTime);
 }

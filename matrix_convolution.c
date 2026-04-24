@@ -5,7 +5,6 @@
 #include <time.h>
 #include <cuda_runtime.h>
 
-
 /*
     ========================
     ====   MEMORY       ====
@@ -15,7 +14,6 @@
 // placeholders for functions so ian's eyes don't bleed.
 void *worker(void *arg);
 void run_gpu_convolution(const float *h_A, const float *h_K, float *h_C, int N, int M, int ksize);
-
 
 // Dynamic pointers to support any size matrix
 double **A;
@@ -60,16 +58,16 @@ double **allocate_matrix(int size)
 
 // check for device with cuda compatability
 // return: 0 == no device; 1 == device
-int has_gpu() {
+int has_gpu()
+{
     int count = 0;
     cudaError_t err = cudaGetDeviceCount(&count);
-    if (err != cudaSuccess || count == 0) {
+    if (err != cudaSuccess || count == 0)
+    {
         return 0;
     }
     return 1;
 }
-
-
 
 // Initialization function
 void initMatrices(int size)
@@ -80,7 +78,7 @@ void initMatrices(int size)
         for (int j = 0; j < size; j++)
         {
             A[i][j] = (double)(rand() % 10); // Random digits 0-9
-            C[i][j] = 0; // Clear the output matrix
+            C[i][j] = 0;                     // Clear the output matrix
         }
     }
 }
@@ -123,15 +121,13 @@ int parse_arguments(int argc, char *argv[], int *n, int *num_threads, char *mode
     return 0; // Success
 }
 
-
 /*
     ========================
     ====   CONVOLUTION  ====
     ====   FUNCTIONS    ====
     ========================
 */
-
-
+/*
 void run_convolution(int n, int num_threads)
 {
     // Allocate thread and data arrays
@@ -144,6 +140,8 @@ void run_convolution(int n, int num_threads)
     int normalRows = validRows / num_threads;
     int oddRows = validRows % num_threads;
     int currentRow = 1; // Start at row 1 (skipping row 0)
+
+    double start_time = get_current_time();
 
     // Fct will assign a thread the normalRow amount unless there are still oddRows left
     // oddRows represents the # of rows that require + 1
@@ -183,16 +181,14 @@ void run_convolution(int n, int num_threads)
         }
     }
 
-
     printf("CPU Convolution complete.\n");
-    
 
     // Clean up thread stuff
     pthread_barrier_destroy(&barrier);
     free(threads);
     free(t_data);
 }
-
+*/
 void *worker(void *arg)
 {
     thread_data *data = (thread_data *)arg;
@@ -226,21 +222,23 @@ void *worker(void *arg)
     return NULL;
 }
 
-__global__
-void convo_kernel(const float *A, const float *K, float *C, int N, int M, int ksize
-) {
+__global__ void convo_kernel(const float *A, const float *K, float *C, int N, int M, int ksize)
+{
     int j = blockIdx.x * blockDim.x + threadIdx.x; // column
     int i = blockIdx.y * blockDim.y + threadIdx.y; // row
 
     int r = ksize / 2;
 
-    if (i < r || i >= N - r || j < r || j >= M - r) {
+    if (i < r || i >= N - r || j < r || j >= M - r)
+    {
         return; // skip edges
     }
 
     float sum = 0.0f;
-    for (int ki = -r; ki <= r; ki++) {
-        for (int kj = -r; kj <= r; kj++) {
+    for (int ki = -r; ki <= r; ki++)
+    {
+        for (int kj = -r; kj <= r; kj++)
+        {
             float a = A[(i + ki) * M + (j + kj)];
             float w = K[(ki + r) * ksize + (kj + r)];
             sum += a * w;
@@ -248,7 +246,6 @@ void convo_kernel(const float *A, const float *K, float *C, int N, int M, int ks
     }
     C[i * M + j] = sum;
 }
-
 
 void run_gpu_convolution(const float *h_A, const float *h_K, float *h_C, int N, int M, int ksize)
 {
@@ -265,7 +262,7 @@ void run_gpu_convolution(const float *h_A, const float *h_K, float *h_C, int N, 
     cudaMemcpy(d_K, h_K, bytes_K, cudaMemcpyHostToDevice);
 
     dim3 block(16, 16);
-    dim3 grid( (M + block.x - 1) / block.x, (N + block.y - 1) / block.y);
+    dim3 grid((M + block.x - 1) / block.x, (N + block.y - 1) / block.y);
 
     convo_kernel<<<grid, block>>>(d_A, d_K, d_C, N, M, ksize);
     cudaDeviceSynchronize();
@@ -277,10 +274,7 @@ void run_gpu_convolution(const float *h_A, const float *h_K, float *h_C, int N, 
     cudaFree(d_K);
 
     printf("GPU Convolution complete.\n");
-
 }
-
-
 
 /*
     ========================
@@ -288,13 +282,6 @@ void run_gpu_convolution(const float *h_A, const float *h_K, float *h_C, int N, 
     ====     CLEANUP    ====
     ========================
 */
-
-// returns current time
-double get_current_time() {
-    struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    return ts.tv_sec + ts.tv_nsec * 1e-9;
-}
 
 // Print matrix for testing
 void print_matrix(double **mat, int n, const char *title)
@@ -309,8 +296,6 @@ void print_matrix(double **mat, int n, const char *title)
         printf("\n");
     }
 }
-
-
 
 // Free the 2D arrays to prevent memory leaks
 void cleanup_matrices(int n)
@@ -330,7 +315,6 @@ void cleanup_matrices(int n)
     ========================
 */
 
-
 int main(int argc, char *argv[])
 {
     int n = 500;
@@ -344,22 +328,24 @@ int main(int argc, char *argv[])
     }
 
     // check for gpu
-    if (strcmp(mode, "cpu") != 0){         
-        if (has_gpu()) {
+    if (strcmp(mode, "cpu") != 0)
+    {
+        if (has_gpu())
+        {
             printf("GPU available. Mode: %s\n", mode);
-        } else{
+        }
+        else
+        {
             printf("No GPU detected, falling back to CPU only.\n");
             strcpy(mode, "cpu");
         }
-    }   
+    }
 
     printf("Configuration: %dx%d matrix, %d threads.\n", n, n, num_threads);
 
     A = allocate_matrix(n);
     C = allocate_matrix(n);
     initMatrices(n);
-
-    
 
     // TEST OUTPUT (only for small matrices)
     if (n <= 10)
@@ -387,16 +373,20 @@ int main(int argc, char *argv[])
         float h_K_flat[9]; // 3x3
 
         // pack A into h_A_flat
-        for (int i = 0; i < n; i++) {
-            for (int j = 0; j < n; j++) {
+        for (int i = 0; i < n; i++)
+        {
+            for (int j = 0; j < n; j++)
+            {
                 h_A_flat[i * n + j] = (float)A[i][j];
             }
         }
 
         // pack K into h_K_flat
         int idx = 0;
-        for (int i = 0; i < 3; i++) {
-            for (int j = 0; j < 3; j++) {
+        for (int i = 0; i < 3; i++)
+        {
+            for (int j = 0; j < 3; j++)
+            {
                 h_K_flat[idx++] = (float)K[i][j];
             }
         }
@@ -408,8 +398,10 @@ int main(int argc, char *argv[])
         printf("GPU Version Elapsed Time: %.4f", gpu_time);
 
         // unpack C
-        for (int i = 0; i < n; i++) {
-            for (int j = 0; j < n; j++) {
+        for (int i = 0; i < n; i++)
+        {
+            for (int j = 0; j < n; j++)
+            {
                 C[i][j] = h_C_flat[i * n + j];
             }
         }

@@ -2,9 +2,8 @@
 #include <stdio.h>
 #include "gpu_convolution.h"
 
-__global__
-void convo_kernel(const float *A, const float *K, float *C,
-                  int N, int M, int ksize)
+__global__ void convo_kernel(const float *A, const float *K, float *C,
+                             int N, int M, int ksize)
 {
     int j = blockIdx.x * blockDim.x + threadIdx.x;
     int i = blockIdx.y * blockDim.y + threadIdx.y;
@@ -15,8 +14,10 @@ void convo_kernel(const float *A, const float *K, float *C,
         return;
 
     float sum = 0.0f;
-    for (int ki = -r; ki <= r; ki++) {
-        for (int kj = -r; kj <= r; kj++) {
+    for (int ki = -r; ki <= r; ki++)
+    {
+        for (int kj = -r; kj <= r; kj++)
+        {
             float a = A[(i + ki) * M + (j + kj)];
             float w = K[(ki + r) * ksize + (kj + r)];
             sum += a * w;
@@ -36,6 +37,10 @@ void run_gpu_convolution(const float *h_A,
 
     float *d_A, *d_C, *d_K;
 
+    cudaEvent_t start, stop;
+    cudaEventCreate(&start);
+    cudaEventCreate(&stop);
+
     cudaMalloc(&d_A, bytesA);
     cudaMalloc(&d_C, bytesC);
     cudaMalloc(&d_K, bytesK);
@@ -46,8 +51,18 @@ void run_gpu_convolution(const float *h_A,
     dim3 block(16, 16);
     dim3 grid((M + 15) / 16, (N + 15) / 16);
 
+    cudaEventRecord(start);
+
     convo_kernel<<<grid, block>>>(d_A, d_K, d_C, N, M, ksize);
-    cudaDeviceSynchronize();
+
+    cudaEventRecord(stop);
+    cudaEventSynchronize(stop);
+
+    float milliseconds = 0;
+    cudaEventElapsedTime(&milliseconds, start, stop);
+
+    cudaEventDestroy(start);
+    cudaEventDestroy(stop);
 
     cudaMemcpy(h_C, d_C, bytesC, cudaMemcpyDeviceToHost);
 
@@ -55,5 +70,5 @@ void run_gpu_convolution(const float *h_A,
     cudaFree(d_C);
     cudaFree(d_K);
 
-    printf("GPU Convolution complete.\n");
+    printf("GPU Math-Only time %.4f\n", milliseconds / 1000);
 }
