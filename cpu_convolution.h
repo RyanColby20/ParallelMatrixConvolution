@@ -1,8 +1,9 @@
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 
-void run_convolution(int width, int height);
+    void run_convolution(int n, int num_threads);
 
 #ifdef __cplusplus
 }
