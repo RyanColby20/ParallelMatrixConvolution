@@ -12,7 +12,7 @@ matrix_convolution: cpu_convolution.o gpu_convolution.o main.o
 	$(NVCC) -o matrix_convolution cpu_convolution.o gpu_convolution.o main.o -lpthread
 
 cpu: cpu_convolution.o main_cpu.o
-	$(CC) -o matrix_convolution cpu_convolution.o main_cpu.o -lpthread
+	$(CC) -o matrix_convolution_cpu cpu_convolution.o main_cpu.o -lpthread
 # Compile CPU C file
 cpu_convolution.o: cpu_convolution.c cpu_convolution.h
 	$(CC) $(CFLAGS) -c cpu_convolution.c
@@ -30,4 +30,4 @@ main_cpu.o: main_cpu.c cpu_convolution.h
 
 # Cleanup
 clean:
-	rm -f *.o matrix_convolution *.txt
+	rm -f *.o matrix_convolution *.txt matrix_convolution_cpu

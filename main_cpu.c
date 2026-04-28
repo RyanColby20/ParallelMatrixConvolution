@@ -151,7 +151,7 @@ int main(int argc, char *argv[])
     double cpu_time = get_current_time() - start_time;
     printf("CPU Version Elapsed Time: %.4f  \n", cpu_time);
 
-    save_matrix("output.txt", C, n);
+    save_matrix("output_cpu.txt", C, n);
     cleanup_matrices(n);
 
     return 0;

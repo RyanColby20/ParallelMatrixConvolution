@@ -242,16 +242,14 @@ int main(int argc, char *argv[])
         printf("CPU Version Elapsed Time: %.4f  \n", cpu_time);
         if (strcmp(mode, "both") == 0)
         {
-            save_general_matrix("outputCpu.txt", C, n);
-        }
-        else
-        {
-            save_general_matrix("outputCpu.txt", C, n);
+            save_general_matrix("output_cpu.txt", C, n);
         }
     }
 
     if (strcmp(mode, "gpu") == 0 || strcmp(mode, "both") == 0)
     {
+        start_time = get_current_time();
+        printf("\n--- Running GPU Version ---\n");
         // setting up vars for CUDA
         float *h_A_flat = (float *)malloc(n * n * sizeof(float));
         float *h_C_flat = (float *)malloc(n * n * sizeof(float));
@@ -276,23 +274,15 @@ int main(int argc, char *argv[])
             }
         }
 
-        start_time = get_current_time();
-        printf("\n--- Running GPU Version ---\n");
         run_gpu_convolution(h_A_flat, h_K_flat, h_C_flat, n, n, 3);
-        double gpu_time = get_current_time() - start_time;
-        printf("GPU Version Elapsed Time: %.4f \n", gpu_time);
 
-        if (strcmp(mode, "both") == 0)
-        {
-            save_gpu_matrix("outputGpu.txt", h_C_flat, n);
-        }
-        else
-        {
-            save_gpu_matrix("outputGpu.txt", h_C_flat, n);
-        }
+        save_gpu_matrix("output_gpu.txt", h_C_flat, n);
 
         free(h_A_flat);
         free(h_C_flat);
+
+        double gpu_time = get_current_time() - start_time;
+        printf("GPU Version Elapsed Time: %.4f \n", gpu_time);
     }
 
     cleanup_matrices(n);

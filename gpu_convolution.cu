@@ -45,6 +45,8 @@ void run_gpu_convolution(const float *h_A,
     cudaMalloc(&d_C, bytesC);
     cudaMalloc(&d_K, bytesK);
 
+    cudaMemset(d_C, 0, bytesC);
+
     cudaMemcpy(d_A, h_A, bytesA, cudaMemcpyHostToDevice);
     cudaMemcpy(d_K, h_K, bytesK, cudaMemcpyHostToDevice);
 
