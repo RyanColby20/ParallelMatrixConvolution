@@ -31,16 +31,21 @@ double get_current_time()
 
 void *worker(void *arg)
 {
+    // grab the thread info
     thread_data *data = (thread_data *)arg;
     int start_row = data->start;
     int end_row = data->end;
     int n = data->matrix_size;
 
+    // loop through our assigned rows
     for (int i = start_row; i <= end_row; i++)
     {
+        // loop through columns, skipping the edges
         for (int j = 1; j < n - 1; j++)
         {
             double sum = 0.0;
+
+            // apply the 3x3 kernel to the neighbors
             for (int m = -1; m <= 1; m++)
             {
                 for (int k = -1; k <= 1; k++)
@@ -52,25 +57,31 @@ void *worker(void *arg)
         }
     }
 
+    // wait for other threads to catch up
     pthread_barrier_wait(&barrier);
+
+    // print completion
+    printf("Thread %d finished convolution\n", data->id);
     return NULL;
 }
 
 void run_convolution(int n, int num_threads)
 {
+    // Allocate memory for threads and their data packets
     pthread_t *threads = malloc(num_threads * sizeof(pthread_t));
     thread_data *tdata = malloc(num_threads * sizeof(thread_data));
 
+    // Initialize the barrier to wait for the exact number of threads
     pthread_barrier_init(&barrier, NULL, num_threads);
 
+    // Calculate row distribution (skipping top and bottom edges)
     int validRows = n - 2;
     int base = validRows / num_threads;
     int extra = validRows % num_threads;
 
     int current = 1;
 
-    double startTime = get_current_time();
-
+    // Distribute work and spawn threads
     for (int t = 0; t < num_threads; t++)
     {
         int rows = base + (extra-- > 0 ? 1 : 0);
@@ -82,17 +93,22 @@ void run_convolution(int n, int num_threads)
 
         current = tdata[t].end + 1;
 
-        pthread_create(&threads[t], NULL, worker, &tdata[t]);
+        // Create thread and make sure it actually spawned successfully
+        if (pthread_create(&threads[t], NULL, worker, &tdata[t]) != 0)
+        {
+            perror("Failed to create thread");
+            exit(1);
+        }
     }
 
+    // Wait for all threads to finish execution
     for (int t = 0; t < num_threads; t++)
+    {
         pthread_join(threads[t], NULL);
+    }
 
-    double endTime = get_current_time() - startTime;
-
+    // Clean up synchronization primitives and memory
     pthread_barrier_destroy(&barrier);
     free(threads);
     free(tdata);
-
-    printf("Cpu Threaded Time %.4f\n", endTime);
 }
