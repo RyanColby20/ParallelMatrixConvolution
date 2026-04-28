@@ -251,13 +251,13 @@ int main(int argc, char *argv[])
 
         run_gpu_convolution(h_A_flat, h_K_flat, h_C_flat, n, n, 3);
 
+        double gpu_time = get_current_time() - start_time;
+        printf("GPU Version Elapsed Time: %.4f \n", gpu_time);
+
         save_gpu_matrix("output_gpu.txt", h_C_flat, n);
 
         free(h_A_flat);
         free(h_C_flat);
-
-        double gpu_time = get_current_time() - start_time;
-        printf("GPU Version Elapsed Time: %.4f \n", gpu_time);
     }
 
     cleanup_matrices(n);
