@@ -6,9 +6,9 @@ NVCCFLAGS   = -O2 -Xcompiler -Wall
 
 
 # Default build
-all: matrix_convolution
+all: both
 
-matrix_convolution: cpu_convolution.o gpu_convolution.o main.o
+both: cpu_convolution.o gpu_convolution.o main.o
 	$(NVCC) -o matrix_convolution cpu_convolution.o gpu_convolution.o main.o -lpthread
 
 cpu: cpu_convolution.o main_cpu.o

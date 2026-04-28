@@ -59,7 +59,7 @@ int has_gpu()
 // Initialization function
 void initMatrices(int size)
 {
-    srand(time(NULL)); // Seed random number generator
+    srand(1); // Seed random number generator (SET TO 1 FOR CONSISTENT TESTING)
     for (int i = 0; i < size; i++)
     {
         for (int j = 0; j < size; j++)
@@ -240,10 +240,8 @@ int main(int argc, char *argv[])
         run_convolution(n, num_threads);
         double cpu_time = get_current_time() - start_time;
         printf("CPU Version Elapsed Time: %.4f  \n", cpu_time);
-        if (strcmp(mode, "both") == 0)
-        {
-            save_general_matrix("output_cpu.txt", C, n);
-        }
+
+        save_general_matrix("output_cpu.txt", C, n);
     }
 
     if (strcmp(mode, "gpu") == 0 || strcmp(mode, "both") == 0)

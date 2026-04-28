@@ -42,7 +42,7 @@ double **allocate_matrix(int size)
 // Initialization function
 void initMatrices(int size)
 {
-    srand(time(NULL)); // Seed random number generator
+    srand(1); // Seed random number generator ( SET TO 1 FOR CONSISTENT TESTING)
     for (int i = 0; i < size; i++)
     {
         for (int j = 0; j < size; j++)
